@@ -1,0 +1,21 @@
+name: Deploy
+on:
+  push:
+    branches:
+      - main
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      - uses: actions/setup-node@v3
+        with:
+          node-version: 20
+      - run: npm install
+      - run: npm run build
+        env:
+          VITE_GEMINI_API_KEY: ${{ secrets.VITE_GEMINI_API_KEY }}
+      - run: |
+          echo '${{ secrets.FIREBASE_SERVICE_ACCOUNT }}' > key.json
+          export GOOGLE_APPLICATION_CREDENTIALS=key.json
+          npx firebase-tools deploy --project rapidlistingtool --only hosting
