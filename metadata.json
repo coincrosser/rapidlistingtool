@@ -1,0 +1,7 @@
+{
+  "name": "RapidListingTool",
+  "description": "A comprehensive reseller listing generator for auto parts and general merchandise featuring dual-mode entry, AI-powered descriptions, and multi-platform export.",
+  "requestFramePermissions": [
+    "camera"
+  ]
+}
