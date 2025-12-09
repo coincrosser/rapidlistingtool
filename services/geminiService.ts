@@ -2,9 +2,9 @@ import { GoogleGenAI, Type, Schema } from "@google/genai";
 import { AutoPartsData, GeneralItemsData, GeneratedListings, ListingMode } from "../types";
 
 const getClient = () => {
-  const apiKey = process.env.API_KEY;
+  const apiKey = "AIzaSyBuespvyXlqMA_UOcmcisiuXEUTV_Mst_Q";
   if (!apiKey) {
-    throw new Error("API Key not found");
+    throw new Error("API key not found");
   }
   return new GoogleGenAI({ apiKey });
 };
@@ -27,21 +27,21 @@ export const analyzeImage = async (base64Data: string, mimeType: string): Promis
             }
           },
           {
-            text: "Extract all visible text from this image. If it looks like a product label, auto part, or box, specifically identify any Part Numbers, OEM Numbers, UPCs, or Model Names. Format the output clearly."
+            text: "Extract all visible text from this image. If it looks like a product label, auto part, or box, specifically identify any Part Numbers, OEM Numbers, UPCs, or Model Names. Format the output as clean text."
           }
         ]
       }
     });
 
-    return response.text || "No text extracted.";
+    return response.text || '';
   } catch (error) {
-    console.error("Gemini OCR Error:", error);
-    throw new Error("Failed to analyze image.");
+    console.error('Error analyzing image:', error);
+    return '';
   }
 };
 
 /**
- * Generates listings for multiple platforms
+ * Generates optimized listings for Auto Parts or General Items
  */
 export const generateListings = async (
   mode: ListingMode,
@@ -49,77 +49,104 @@ export const generateListings = async (
 ): Promise<GeneratedListings> => {
   const ai = getClient();
 
-  let prompt = "";
-  
-  if (mode === ListingMode.AUTO_PARTS) {
-    const d = data as AutoPartsData;
-    prompt = `
-      Create professional reseller listings for an AUTO PART with the following details:
-      Year: ${d.year}
-      Make: ${d.make}
-      Model: ${d.model}
-      Trim/Engine: ${d.trimEngine}
-      Part Name: ${d.partName}
-      Category: ${d.category}
-      OEM Part Number: ${d.oemNumber}
-      Interchange: ${d.interchangeNumber}
-      Condition: ${d.condition}
-      Notes: ${d.additionalNotes}
-      Extracted Text from Images: ${d.ocrText}
-    `;
-  } else {
-    const d = data as GeneralItemsData;
-    prompt = `
-      Create professional reseller listings for a GENERAL ITEM with the following details:
-      Item Name: ${d.itemName}
-      Brand: ${d.brand}
-      Category: ${d.category}
-      UPC: ${d.upc}
-      Size/Dimensions: ${d.sizeDimensions}
-      Condition: ${d.condition}
-      Notes: ${d.additionalNotes}
-      Extracted Text from Images: ${d.ocrText}
-    `;
-  }
-
-  prompt += `
-    \nGENERATE 3 DISTINCT LISTING FORMATS in JSON:
-    1. eBay: SEO optimized title (max 80 chars), detailed HTML-friendly description.
-    2. Facebook Marketplace: Catchy title, concise description with keywords.
-    3. Craigslist: Descriptive title, standard text description.
-    
-    Ensure the tone is professional and trustworthy. Highlight the condition and fitment/specs.
-  `;
-
-  const schema: Schema = {
-    type: Type.OBJECT,
-    properties: {
-      ebayTitle: { type: Type.STRING },
-      ebayDescription: { type: Type.STRING },
-      facebookTitle: { type: Type.STRING },
-      facebookDescription: { type: Type.STRING },
-      craigslistTitle: { type: Type.STRING },
-      craigslistDescription: { type: Type.STRING },
-    },
-    required: ["ebayTitle", "ebayDescription", "facebookTitle", "facebookDescription", "craigslistTitle", "craigslistDescription"],
-  };
+  const prompt = mode === ListingMode.AUTO_PARTS
+    ? buildAutoPartsPrompt(data as AutoPartsData)
+    : buildGeneralItemsPrompt(data as GeneralItemsData);
 
   try {
     const response = await ai.models.generateContent({
       model: 'gemini-2.5-flash',
-      contents: prompt,
-      config: {
+      contents: { parts: [{ text: prompt }] },
+      generationConfig: {
+        temperature: 0.8,
+        topK: 40,
+        topP: 0.95,
+        maxOutputTokens: 4096,
         responseMimeType: "application/json",
-        responseSchema: schema,
+        responseSchema: {
+          type: "object" as Type.OBJECT,
+          properties: {
+            ebay: {
+              type: "object" as Type.OBJECT,
+              properties: {
+                title: { type: "string" as Type.STRING },
+                description: { type: "string" as Type.STRING },
+                price: { type: "string" as Type.STRING },
+                shipping: { type: "string" as Type.STRING }
+              },
+              required: ["title", "description", "price", "shipping"]
+            },
+            facebook: {
+              type: "object" as Type.OBJECT,
+              properties: {
+                title: { type: "string" as Type.STRING },
+                description: { type: "string" as Type.STRING },
+                price: { type: "string" as Type.STRING }
+              },
+              required: ["title", "description", "price"]
+            },
+            craigslist: {
+              type: "object" as Type.OBJECT,
+              properties: {
+                title: { type: "string" as Type.STRING },
+                description: { type: "string" as Type.STRING },
+                price: { type: "string" as Type.STRING }
+              },
+              required: ["title", "description", "price"]
+            }
+          },
+          required: ["ebay", "facebook", "craigslist"]
+        }
       }
     });
 
-    const jsonText = response.text;
-    if (!jsonText) throw new Error("Empty response from AI");
-
-    return JSON.parse(jsonText) as GeneratedListings;
+    const result = JSON.parse(response.text);
+    return result as GeneratedListings;
   } catch (error) {
-    console.error("Gemini Listing Gen Error:", error);
-    throw new Error("Failed to generate listings.");
+    console.error('Error generating listings:', error);
+    throw error;
   }
 };
+
+function buildAutoPartsPrompt(data: AutoPartsData): string {
+  return `Generate optimized listings for an auto part with the following details:
+
+Year: ${data.year}
+Make: ${data.make}
+Model: ${data.model}
+Trim/Engine: ${data.trimEngine}
+Category: ${data.category}
+Part Name: ${data.partName}
+OEM Number: ${data.oemNumber}
+Interchange Number: ${data.interchangeNumber}
+Condition: ${data.condition}
+Additional Notes: ${data.additionalNotes}
+OCR Text from Images: ${data.ocrText}
+
+Please create three optimized listings tailored for:
+1. eBay - Detailed, SEO-optimized with fitment info
+2. Facebook Marketplace - Casual, local buyer focused
+3. Craigslist - Simple, keyword-rich
+
+For pricing, suggest competitive prices based on condition and market research.`;
+}
+
+function buildGeneralItemsPrompt(data: GeneralItemsData): string {
+  return `Generate optimized listings for a general item with the following details:
+
+UPC: ${data.upc}
+Category: ${data.category}
+Brand: ${data.brand}
+Item Name: ${data.itemName}
+Size/Dimensions: ${data.sizeDimensions}
+Condition: ${data.condition}
+Additional Notes: ${data.additionalNotes}
+OCR Text from Images: ${data.ocrText}
+
+Please create three optimized listings tailored for:
+1. eBay - Detailed, SEO-optimized
+2. Facebook Marketplace - Casual, local buyer focused
+3. Craigslist - Simple, keyword-rich
+
+For pricing, suggest competitive prices based on condition and market research.`;
+}
