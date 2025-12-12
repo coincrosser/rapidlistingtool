@@ -24,10 +24,10 @@ jobs:
         env:
           VITE_GEMINI_API_KEY: ${{ secrets.VITE_GEMINI_API_KEY }}
 
-      - name: Deploy to Firebase
-        run: |
-          echo "$FIREBASE_SERVICE_ACCOUNT" > $HOME/firebase-key.json
-          export GOOGLE_APPLICATION_CREDENTIALS=$HOME/firebase-key.json
-          npx firebase-tools deploy --only hosting --project rapidlistingtool
-        env:
-          FIREBASE_SERVICE_ACCOUNT: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
+      - name: Deploy to Firebase Hosting
+        uses: FirebaseExtended/action-hosting-deploy@v0
+        with:
+          repoToken: '${{ secrets.GITHUB_TOKEN }}'
+          firebaseServiceAccount: '${{ secrets.FIREBASE_SERVICE_ACCOUNT }}'
+          projectId: rapidlistingtool
+          channelId: live
