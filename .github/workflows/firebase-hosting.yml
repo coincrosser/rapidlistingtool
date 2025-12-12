@@ -6,28 +6,28 @@ on:
       - main
 
 jobs:
-build_and_deploy:
-runs-on: ubuntu-latest
-steps:
-  - uses: actions/checkout@v3
-  
-  - name: Setup Node.js
-    uses: actions/setup-node@v3
-    with:
-      node-version: '20'
-  
-  - name: Install dependencies
-    run: npm install      
-  - name: Build
-    run: npm run build
-    env:
-      VITE_GEMINI_API_KEY: ${{ secrets.VITE_GEMINI_API_KEY }}
-  
-- name: Deploy to Firebase
-  run: |
-    echo "$FIREBASE_SERVICE_ACCOUNT" > $HOME/firebase-key.json
-    export GOOGLE_APPLICATION_CREDENTIALS=$HOME/firebase-key.json
-    npx firebase-tools deploy --only hosting --project rapidlistingtool
-  env:
-    FIREBASE_SERVICE_ACCOUNT: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
-                  
+  build_and_deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: '20'
+
+      - name: Install dependencies
+        run: npm install
+
+      - name: Build
+        run: npm run build
+        env:
+          VITE_GEMINI_API_KEY: ${{ secrets.VITE_GEMINI_API_KEY }}
+
+      - name: Deploy to Firebase
+        run: |
+          echo "$FIREBASE_SERVICE_ACCOUNT" > $HOME/firebase-key.json
+          export GOOGLE_APPLICATION_CREDENTIALS=$HOME/firebase-key.json
+          npx firebase-tools deploy --only hosting --project rapidlistingtool
+        env:
+          FIREBASE_SERVICE_ACCOUNT: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
